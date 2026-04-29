@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Eron — AI Chat</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#3ddc84" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Eron" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+
+  <script src="https://js.puter.com/v2/"></script>
+  <style>
+    /* ── Reset & Tokens ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-w: 260px;
+      --topbar-h: 54px;
+      --radius: 12px;
+      --font: 'Segoe UI', system-ui, sans-serif;
+      --transition: 0.22s ease;
+
+      /* dark grey + green theme (default) */
+      --bg:        #141616;
+      --surface:   #1c1f1e;
+      --surface2:  #242827;
+      --border:    #2e3532;
+      --text:      #d8e8dc;
+      --muted:     #5a7265;
+      --accent:    #3ddc84;
+      --accent-h:  #5eeea0;
+      --user-bg:   #2a7a52;
+      --ai-bg:     #1e2421;
+      --input-bg:  #1c1f1e;
+      --shadow:    0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    [data-theme="light"] {
+      --bg:        #eef4f0;
+      --surface:   #ffffff;
+      --surface2:  #e0ede6;
+      --border:    #c0d9ca;
+      --text:      #152219;
+      --muted:     #6a9078;
+      --accent:    #1f9c5e;
+      --accent-h:  #17844f;
+      --user-bg:   #1f9c5e;
+      --ai-bg:     #eef4f0;
+      --input-bg:  #ffffff;
+      --shadow:    0 4px 24px rgba(31,156,94,0.12);
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    /* ── Sidebar ───────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    #sidebar-header {
+      padding: 1.1rem 1rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--accent);
+      flex: 1;
+    }
+
+    #btn-new {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--transition), transform 0.1s;
+      white-space: nowrap;
+    }
+    #btn-new:hover { background: var(--accent-h); transform: translateY(-1px); }
+
+    #sessions-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.9rem 1rem 0.4rem;
+    }
+
+    #sessions-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 0.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    #sessions-list::-webkit-scrollbar { width: 4px; }
+    #sessions-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .session-item {
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.83rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background var(--transition), color var(--transition);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      position: relative;
+      user-select: none;
+    }
+
+    .session-item:hover { background: var(--surface2); color: var(--text); }
+    .session-item.active { background: rgba(61,220,132,0.12); color: var(--accent); font-weight: 600; }
+
+    .session-item .s-icon { font-size: 0.9rem; flex-shrink: 0; }
+    .session-item .s-title { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .session-item .s-del {
+      opacity: 0; font-size: 0.75rem; cursor: pointer; padding: 2px 4px;
+      border-radius: 4px; transition: opacity 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+    .session-item:hover .s-del { opacity: 1; }
+    .session-item .s-del:hover { background: rgba(255,80,80,0.2); color: #ff5050; }
+
+    /* ── Main ──────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Topbar ────────────────────────────────────────────────── */
+    #topbar {
+      height: var(--topbar-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.25rem;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    #session-title {
+      flex: 1;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #model-badge {
+      font-size: 0.68rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 2rem;
+      background: rgba(61,220,132,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(61,220,132,0.3);
+      white-space: nowrap;
+    }
+
+    #btn-theme {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1rem;
+      transition: background var(--transition), transform 0.15s;
+      flex-shrink: 0;
+    }
+    #btn-theme:hover { background: var(--border); transform: rotate(20deg); }
+
+    /* ── Profile chip + dropdown ───────────────────────────────── */
+    #profile-wrapper {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    #user-chip {
+      font-size: 0.72rem; padding: 0.25rem 0.65rem;
+      border-radius: 2rem; background: var(--surface2);
+      border: 1px solid var(--border); color: var(--muted);
+      display: flex; align-items: center; gap: 0.4rem;
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s, color 0.18s;
+      user-select: none;
+    }
+    #user-chip:hover,
+    #user-chip.open { border-color: var(--accent); color: var(--accent); background: rgba(61,220,132,0.1); }
+
+    #user-chip .chip-avatar {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    #user-chip .chip-caret {
+      font-size: 0.55rem;
+      opacity: 0.6;
+      transition: transform 0.2s;
+    }
+    #user-chip.open .chip-caret { transform: rotate(180deg); }
+
+    /* Dropdown menu */
+    #profile-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 220px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2);
+      overflow: hidden;
+      z-index: 300;
+      opacity: 0;
+      transform: translateY(-6px) scale(0.97);
+      pointer-events: none;
+      transition: opacity 0.18s cubic-bezier(.22,1,.36,1),
+                  transform 0.18s cubic-bezier(.22,1,.36,1);
+    }
+    #profile-dropdown.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: all;
+    }
+
+    /* User info header inside dropdown */
+    .pd-header {
+      padding: 1rem 1rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .pd-avatar-lg {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-h));
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(61,220,132,0.35);
+    }
+
+    .pd-user-info { flex: 1; min-width: 0; }
+    .pd-user-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pd-user-email {
+      font-size: 0.68rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Dropdown items */
+    .pd-menu { padding: 0.4rem 0; }
+
+    .pd-item {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.6rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      border: none;
+      background: transparent;
+      width: 100%;
+      font-family: var(--font);
+      text-align: left;
+    }
+    .pd-item:hover { background: var(--surface2); color: var(--accent); }
+    .pd-item .pd-icon {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .pd-item:hover .pd-icon { background: rgba(61,220,132,0.12); border-color: rgba(61,220,132,0.3); }
+
+    .pd-item.danger { color: #ff5a5a; }
+    .pd-item.danger:hover { background: rgba(255,90,90,0.08); color: #ff3a3a; }
+    .pd-item.danger .pd-icon { color: #ff5a5a; }
+    .pd-item.danger:hover .pd-icon { background: rgba(255,90,90,0.15); border-color: rgba(255,90,90,0.3); }
+
+    .pd-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0.3rem 0;
+    }
+
+    /* ── Profile Info Modal ────────────────────────────────────── */
+    #profile-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 400;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    #profile-modal-overlay.open {
+      display: flex;
+      animation: overlayIn 0.2s ease;
+    }
+
+    #profile-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 0;
+      width: 100%;
+      max-width: 360px;
+      margin: 1rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      overflow: hidden;
+      animation: modalPop 0.25s cubic-bezier(.22,1,.36,1);
+    }
+
+    @keyframes modalPop {
+      from { transform: scale(0.92) translateY(10px); opacity: 0; }
+      to   { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .pm-hero {
+      background: linear-gradient(135deg, #1f9c5e 0%, #3ddc84 100%);
+      padding: 2rem 1.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      position: relative;
+    }
+
+    .pm-avatar {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      border: 3px solid rgba(255,255,255,0.5);
+      color: #fff;
+      font-size: 1.6rem;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+
+    .pm-name {
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .pm-badge {
+      font-size: 0.65rem;
+      padding: 0.2rem 0.65rem;
+      border-radius: 2rem;
+      background: rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.9);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .pm-close-btn {
+      position: absolute;
+      top: 0.75rem; right: 0.75rem;
+      background: rgba(255,255,255,0.2);
+      border: none; border-radius: 50%;
+      width: 28px; height: 28px;
+      color: #fff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+      font-family: var(--font);
+    }
+    .pm-close-btn:hover { background: rgba(255,255,255,0.35); }
+
+    .pm-body {
+      padding: 1.25rem 1.5rem;
+    }
+
+    .pm-field {
+      margin-bottom: 1rem;
+    }
+    .pm-field:last-child { margin-bottom: 0; }
+
+    .pm-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+
+    .pm-value {
+      font-size: 0.88rem;
+      color: var(--text);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pm-value .pm-val-icon { font-size: 0.9rem; opacity: 0.6; }
+
+    .pm-footer {
+      padding: 0.75rem 1.5rem 1.25rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .pm-btn {
+      flex: 1;
+      padding: 0.6rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.18s;
+      border: 1px solid var(--border);
+    }
+    .pm-btn.secondary {
+      background: var(--surface2);
+      color: var(--muted);
+    }
+    .pm-btn.secondary:hover { background: var(--border); color: var(--text); }
+    .pm-btn.danger-btn {
+      background: transparent;
+      color: #ff5a5a;
+      border-color: rgba(255,90,90,0.3);
+    }
+    .pm-btn.danger-btn:hover { background: rgba(255,90,90,0.1); border-color: #ff5a5a; }
+
+    /* ── Chat area ─────────────────────────────────────────────── */
+    #chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    #chat-area::-webkit-scrollbar { width: 5px; }
+    #chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* Empty state */
+    #empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+      padding: 2rem;
+      pointer-events: none;
+    }
+
+    #empty-state .e-logo { font-size: 2.8rem; }
+    #empty-state h2 { font-size: 1.3rem; font-weight: 700; color: var(--text); }
+    #empty-state p { font-size: 0.83rem; max-width: 300px; line-height: 1.6; }
+
+    /* Message bubbles */
+    .msg {
+      display: flex;
+      gap: 0.65rem;
+      max-width: 78%;
+      animation: msgIn 0.28s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.ai   { align-self: flex-start; }
+
+    .msg-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; flex-shrink: 0; margin-top: 2px;
+    }
+
+    .msg.user .msg-avatar { background: var(--user-bg); }
+    .msg.ai   .msg-avatar { background: var(--ai-bg); border: 1px solid var(--border); }
+
+    .msg-bubble {
+      padding: 0.65rem 0.9rem;
+      border-radius: var(--radius);
+      font-size: 0.88rem;
+      line-height: 1.65;
+      max-width: 100%;
+      word-break: break-word;
+      box-shadow: var(--shadow);
+    }
+
+    .msg.user .msg-bubble {
+      background: var(--user-bg);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.ai .msg-bubble {
+      background: var(--ai-bg);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .msg-bubble pre {
+      background: rgba(0,0,0,0.25);
+      border-radius: 8px;
+      padding: 0.75rem;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      margin: 0.5rem 0;
+    }
+
+    .msg-bubble code {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 0.82rem;
+    }
+
+    /* Thinking dots */
+    .thinking {
+      display: flex; gap: 5px; align-items: center;
+      padding: 0.65rem 0.9rem;
+    }
+
+    .thinking span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+      animation: tdBounce 1.1s ease-in-out infinite;
+    }
+    .thinking span:nth-child(1) { animation-delay: 0s; }
+    .thinking span:nth-child(2) { animation-delay: 0.18s; }
+    .thinking span:nth-child(3) { animation-delay: 0.36s; }
+
+    @keyframes tdBounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+      40%            { transform: translateY(-7px); opacity: 1; }
+    }
+
+    /* ── Input bar ─────────────────────────────────────────────── */
+    #input-bar {
+      padding: 0.85rem 1.25rem 1rem;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex-shrink: 0;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    #img-preview-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0;
+    }
+
+    .img-thumb {
+      position: relative;
+      width: 64px; height: 64px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .img-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .img-thumb .thumb-del {
+      position: absolute;
+      top: 2px; right: 2px;
+      width: 18px; height: 18px;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.65rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .thumb-del:hover { background: rgba(255,60,60,0.85); }
+
+    #input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.6rem;
+    }
+
+    #btn-attach {
+      width: 40px; height: 40px; flex-shrink: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition), color var(--transition), transform 0.1s;
+    }
+    #btn-attach:hover { background: var(--border); color: var(--text); transform: translateY(-1px); }
+
+    #file-input { display: none; }
+
+    #msg-input {
+      flex: 1;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.88rem;
+      color: var(--text);
+      font-family: var(--font);
+      resize: none;
+      max-height: 160px;
+      outline: none;
+      transition: border-color var(--transition);
+      line-height: 1.5;
+    }
+
+    #msg-input::placeholder { color: var(--muted); }
+    #msg-input:focus { border-color: var(--accent); }
+
+    #input-bar.drag-over {
+      border-top-color: var(--accent);
+      background: rgba(61,220,132,0.05);
+    }
+
+    #btn-send {
+      width: 40px; height: 40px; flex-shrink: 0;
+      background: var(--accent);
+      border: none; border-radius: 10px;
+      color: #fff; font-size: 1.1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition), transform 0.1s;
+    }
+    #btn-send:hover { background: var(--accent-h); transform: translateY(-1px); }
+    #btn-send:disabled { background: var(--border); cursor: not-allowed; transform: none; }
+
+    .msg-bubble img.chat-img {
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: 8px;
+      display: block;
+      margin-top: 0.4rem;
+      object-fit: contain;
+    }
+
+    /* ── File type picker modal ────────────────────────────────── */
+    #file-type-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #file-type-overlay.open {
+      display: flex;
+      animation: overlayIn 0.2s ease;
+    }
+    @keyframes overlayIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    #file-type-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem 1.25rem 0 0;
+      padding: 1.25rem 1rem 2rem;
+      width: 100%;
+      max-width: 480px;
+      animation: modalUp 0.25s cubic-bezier(.22,1,.36,1);
+    }
+    @keyframes modalUp {
+      from { transform: translateY(60px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    #file-type-modal h3 {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .file-type-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+    }
+
+    .ft-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.9rem 0.5rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      color: var(--text);
+      font-family: var(--font);
+    }
+    .ft-btn:hover {
+      border-color: var(--accent);
+      background: rgba(61,220,132,0.1);
+      transform: translateY(-2px);
+    }
+    .ft-btn .ft-icon { font-size: 1.6rem; }
+    .ft-btn .ft-label { font-size: 0.72rem; font-weight: 600; }
+    .ft-btn .ft-ext   { font-size: 0.62rem; color: var(--muted); }
+
+    #ft-cancel {
+      margin-top: 0.75rem;
+      width: 100%;
+      padding: 0.65rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font);
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    #ft-cancel:hover { background: var(--surface2); color: var(--text); }
+
+    /* ── Responsive ────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      #sidebar { display: none; }
+    }
+
+    /* ── Auth pages ─────────────────────────────────────────────── */
+    #auth-screen {
+      position: fixed; inset: 0; z-index: 200;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+      transition: background var(--transition);
+    }
+    #auth-screen.hidden { display: none; }
+
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 2.5rem 2rem;
+      width: 100%; max-width: 380px;
+      box-shadow: var(--shadow);
+      animation: msgIn 0.35s cubic-bezier(.22,1,.36,1);
+    }
+
+    .auth-logo {
+      font-size: 2rem; font-weight: 800;
+      letter-spacing: -0.04em; color: var(--accent);
+      text-align: center; margin-bottom: 0.25rem;
+    }
+    .auth-tagline {
+      text-align: center; font-size: 0.78rem;
+      color: var(--muted); margin-bottom: 2rem;
+    }
+
+    .auth-tabs {
+      display: flex; gap: 0; margin-bottom: 1.75rem;
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .auth-tab {
+      flex: 1; padding: 0.55rem;
+      font-size: 0.8rem; font-weight: 600;
+      border: none; background: transparent;
+      color: var(--muted); cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.18s;
+    }
+    .auth-tab.active { background: var(--accent); color: #fff; }
+
+    .auth-field { margin-bottom: 1rem; }
+    .auth-field label {
+      display: block; font-size: 0.72rem; font-weight: 600;
+      color: var(--muted); margin-bottom: 0.35rem;
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .auth-field input {
+      width: 100%; padding: 0.65rem 0.9rem;
+      background: var(--input-bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text);
+      font-size: 0.88rem; font-family: var(--font);
+      outline: none; transition: border-color 0.18s;
+    }
+    .auth-field input:focus { border-color: var(--accent); }
+
+    .auth-submit {
+      width: 100%; padding: 0.75rem;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; font-family: var(--font);
+      margin-top: 0.5rem;
+      transition: background 0.18s, transform 0.1s;
+    }
+    .auth-submit:hover { background: var(--accent-h); transform: translateY(-1px); }
+
+    .auth-error {
+      font-size: 0.75rem; color: #ff5a5a;
+      text-align: center; margin-top: 0.75rem;
+      min-height: 1rem;
+    }
+    .auth-footer {
+      text-align: center; font-size: 0.7rem;
+      color: var(--muted); margin-top: 1.25rem;
+    }
+
+    /* ── PWA install banner ──────────────────────────────────────── */
+    #install-banner {
+      display: none;
+      position: fixed;
+      bottom: 80px; left: 50%; transform: translateX(-50%);
+      z-index: 150;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 1rem;
+      padding: 0.75rem 1rem;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 8px 32px rgba(61,220,132,0.2);
+      max-width: 340px; width: calc(100% - 2rem);
+      animation: msgIn 0.3s ease;
+    }
+    #install-banner .ib-icon { font-size: 1.4rem; }
+    #install-banner .ib-text { flex: 1; }
+    #install-banner .ib-text strong { display: block; font-size: 0.82rem; }
+    #install-banner .ib-text span { font-size: 0.72rem; color: var(--muted); }
+    #install-banner .ib-install {
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 6px;
+      padding: 0.4rem 0.8rem; font-size: 0.75rem; font-weight: 700;
+      cursor: pointer; white-space: nowrap; font-family: var(--font);
+    }
+    #install-banner .ib-close {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 1rem; padding: 0 0.25rem;
+    }
+
+    #input-bar { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+
+  </style>
+</head>
+<body>
+
+  <!-- ── Auth screen ── -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">Eron</div>
+      <div class="auth-tagline">Your intelligent AI assistant</div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+        <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+      </div>
+
+      <div id="form-login">
+        <div class="auth-field">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" />
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" />
+        </div>
+        <button class="auth-submit" onclick="doLogin()">Sign In →</button>
+      </div>
+
+      <div id="form-signup" style="display:none">
+        <div class="auth-field">
+          <label>Name</label>
+          <input type="text" id="signup-name" placeholder="Your name" />
+        </div>
+        <div class="auth-field">
+          <label>Email</label>
+          <input type="email" id="signup-email" placeholder="you@example.com" />
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="signup-password" placeholder="At least 6 characters" />
+        </div>
+        <div class="auth-field">
+          <label>Confirm Password</label>
+          <input type="password" id="signup-confirm" placeholder="Repeat password" />
+        </div>
+        <button class="auth-submit" onclick="doSignup()">Create Account →</button>
+      </div>
+
+      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-footer">By continuing you agree to Eron's terms of service</div>
+    </div>
+  </div>
+
+  <!-- ── PWA Install Banner ── -->
+  <div id="install-banner">
+    <span class="ib-icon">📱</span>
+    <div class="ib-text">
+      <strong>Install Eron</strong>
+      <span>Add to your home screen</span>
+    </div>
+    <button class="ib-install" onclick="installApp()">Install</button>
+    <button class="ib-close" onclick="dismissInstall()">✕</button>
+  </div>
+
+  <!-- ── File type picker modal ── -->
+  <div id="file-type-overlay" onclick="closeFTPicker(event)">
+    <div id="file-type-modal">
+      <h3>Choose file type</h3>
+      <div class="file-type-grid">
+        <button class="ft-btn" onclick="pickFileType('image/*')">
+          <span class="ft-icon">🖼️</span>
+          <span class="ft-label">Image</span>
+          <span class="ft-ext">jpg, png, gif…</span>
+        </button>
+        <button class="ft-btn" onclick="pickFileType('.pdf')">
+          <span class="ft-icon">📄</span>
+          <span class="ft-label">PDF</span>
+          <span class="ft-ext">.pdf</span>
+        </button>
+        <button class="ft-btn" onclick="pickFileType('.doc,.docx')">
+          <span class="ft-icon">📝</span>
+          <span class="ft-label">Document</span>
+          <span class="ft-ext">doc, docx</span>
+        </button>
+        <button class="ft-btn" onclick="pickFileType('.xls,.xlsx,.csv')">
+          <span class="ft-icon">📊</span>
+          <span class="ft-label">Spreadsheet</span>
+          <span class="ft-ext">xlsx, csv</span>
+        </button>
+        <button class="ft-btn" onclick="pickFileType('.ppt,.pptx')">
+          <span class="ft-icon">📽️</span>
+          <span class="ft-label">Slides</span>
+          <span class="ft-ext">ppt, pptx</span>
+        </button>
+        <button class="ft-btn" onclick="pickFileType('.txt,.md,.json,.js,.py,.html,.css')">
+          <span class="ft-icon">💻</span>
+          <span class="ft-label">Code / Text</span>
+          <span class="ft-ext">txt, md, js…</span>
+        </button>
+        <button class="ft-btn" onclick="pickFileType('audio/*')">
+          <span class="ft-icon">🎵</span>
+          <span class="ft-label">Audio</span>
+          <span class="ft-ext">mp3, wav…</span>
+        </button>
+        <button class="ft-btn" onclick="pickFileType('video/*')">
+          <span class="ft-icon">🎬</span>
+          <span class="ft-label">Video</span>
+          <span class="ft-ext">mp4, mov…</span>
+        </button>
+        <button class="ft-btn" onclick="pickFileType('*/*')">
+          <span class="ft-icon">📁</span>
+          <span class="ft-label">Any File</span>
+          <span class="ft-ext">all types</span>
+        </button>
+      </div>
+      <button id="ft-cancel" onclick="closeFTPicker()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ── Profile Info Modal ── -->
+  <div id="profile-modal-overlay" onclick="closeProfileModal(event)">
+    <div id="profile-modal">
+      <div class="pm-hero">
+        <button class="pm-close-btn" onclick="closeProfileModal()">✕</button>
+        <div class="pm-avatar" id="pm-avatar-initials">E</div>
+        <div class="pm-name" id="pm-display-name">User</div>
+        <div class="pm-badge">Eron Member</div>
+      </div>
+      <div class="pm-body">
+        <div class="pm-field">
+          <div class="pm-label">Full Name</div>
+          <div class="pm-value"><span class="pm-val-icon">👤</span><span id="pm-name-val">—</span></div>
+        </div>
+        <div class="pm-field">
+          <div class="pm-label">Email Address</div>
+          <div class="pm-value"><span class="pm-val-icon">✉️</span><span id="pm-email-val">—</span></div>
+        </div>
+        <div class="pm-field">
+          <div class="pm-label">Conversations</div>
+          <div class="pm-value"><span class="pm-val-icon">💬</span><span id="pm-convo-count">0</span></div>
+        </div>
+      </div>
+      <div class="pm-footer">
+        <button class="pm-btn secondary" onclick="closeProfileModal()">Close</button>
+        <button class="pm-btn danger-btn" onclick="closeProfileModal(); doLogout();">Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sidebar ── -->
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <span class="logo">Eron</span>
+      <button id="btn-new" onclick="newSession()">+ New Chat</button>
+    </div>
+    <div id="sessions-label">Conversations</div>
+    <div id="sessions-list"></div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div id="main">
+
+    <!-- Topbar -->
+    <div id="topbar">
+      <span id="session-title">New Chat</span>
+      <span id="model-badge">GPT-4o mini · Puter</span>
+
+      <!-- Profile chip with dropdown -->
+      <div id="profile-wrapper">
+        <div id="user-chip" onclick="toggleProfileMenu(event)" title="Profile menu">
+          <div class="chip-avatar" id="chip-avatar-initials">E</div>
+          <span id="user-name-display">Guest</span>
+          <span class="chip-caret">▼</span>
+        </div>
+
+        <div id="profile-dropdown">
+          <!-- User info header -->
+          <div class="pd-header">
+            <div class="pd-avatar-lg" id="pd-avatar-initials">E</div>
+            <div class="pd-user-info">
+              <div class="pd-user-name" id="pd-display-name">Guest</div>
+              <div class="pd-user-email" id="pd-display-email">—</div>
+            </div>
+          </div>
+
+          <div class="pd-menu">
+            <button class="pd-item" onclick="openProfileModal()">
+              <span class="pd-icon">👤</span>
+              Profile Info
+            </button>
+            <div class="pd-divider"></div>
+            <button class="pd-item danger" onclick="closeProfileMenu(); doLogout();">
+              <span class="pd-icon">🚪</span>
+              Log Out
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-theme" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+    </div>
+
+    <!-- Chat -->
+    <div id="chat-area">
+      <div id="empty-state">
+        <div class="e-logo">✦</div>
+        <h2>Hi, I'm Eron</h2>
+        <p>Your AI assistant, powered by Puter. Ask me anything — code, ideas, questions, analysis.</p>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div id="input-bar">
+      <div id="img-preview-strip"></div>
+      <div id="input-row">
+        <input type="file" id="file-input" accept="image/*" multiple />
+        <button id="btn-attach" title="Attach file">📎</button>
+        <textarea id="msg-input" rows="1" placeholder="Message Eron… (paste or drag images too)"></textarea>
+        <button id="btn-send" onclick="sendMessage()">↑</button>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+  // ── State ─────────────────────────────────────────────────────
+  let sessions = JSON.parse(localStorage.getItem('eron_sessions') || '[]');
+  let activeId = null;
+  let pendingImages = [];
+
+  function saveState() {
+    if (!currentUser) return;
+    localStorage.setItem('eron_sessions_' + currentUser.email, JSON.stringify(sessions));
+  }
+
+  function getSession(id) {
+    return sessions.find(s => s.id === id);
+  }
+
+  // ── Sessions ──────────────────────────────────────────────────
+  function newSession() {
+    const id = 'sess_' + Date.now();
+    sessions.unshift({ id, title: 'New Chat', messages: [] });
+    saveState();
+    setActive(id);
+    renderSessionList();
+  }
+
+  function setActive(id) {
+    activeId = id;
+    renderSessionList();
+    renderChat();
+    const sess = getSession(id);
+    document.getElementById('session-title').textContent = sess ? sess.title : 'New Chat';
+  }
+
+  function deleteSession(id, e) {
+    e.stopPropagation();
+    sessions = sessions.filter(s => s.id !== id);
+    saveState();
+    if (activeId === id) {
+      activeId = sessions.length ? sessions[0].id : null;
+    }
+    renderSessionList();
+    if (activeId) setActive(activeId); else renderChat();
+  }
+
+  function renderSessionList() {
+    const list = document.getElementById('sessions-list');
+    list.innerHTML = '';
+    sessions.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'session-item' + (s.id === activeId ? ' active' : '');
+      el.innerHTML = `
+        <span class="s-icon">💬</span>
+        <span class="s-title">${escHtml(s.title)}</span>
+        <span class="s-del" title="Delete">✕</span>
+      `;
+      el.querySelector('.s-del').addEventListener('click', e => deleteSession(s.id, e));
+      el.addEventListener('click', () => setActive(s.id));
+      list.appendChild(el);
+    });
+  }
+
+  // ── Chat rendering ────────────────────────────────────────────
+  function renderChat() {
+    const area = document.getElementById('chat-area');
+    area.innerHTML = '';
+    const sess = getSession(activeId);
+
+    if (!sess || sess.messages.length === 0) {
+      area.innerHTML = `
+        <div id="empty-state">
+          <div class="e-logo">✦</div>
+          <h2>Hi, I'm Eron</h2>
+          <p>Your AI assistant, powered by Puter. Ask me anything — paste or drag in images too.</p>
+        </div>`;
+      return;
+    }
+
+    sess.messages.forEach(m => appendBubble(m.role, m.content, m.images || [], false));
+    scrollBottom();
+  }
+
+  function appendBubble(role, content, images = [], animate = true) {
+    const area = document.getElementById('chat-area');
+    const empty = document.getElementById('empty-state');
+    if (empty) empty.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${role}`;
+    if (!animate) wrap.style.animation = 'none';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = role === 'user' ? '🧑' : '✦';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+
+    images.forEach(src => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.className = 'chat-img';
+      bubble.appendChild(img);
+    });
+
+    if (content) {
+      const textNode = document.createElement('span');
+      textNode.innerHTML = formatContent(content);
+      bubble.appendChild(textNode);
+    }
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    area.appendChild(wrap);
+    scrollBottom();
+    return bubble;
+  }
+
+  function formatContent(text) {
+    return escHtml(text)
+      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showThinking() {
+    const area = document.getElementById('chat-area');
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ai';
+    wrap.id = 'thinking-wrap';
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = '✦';
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble thinking';
+    bubble.innerHTML = '<span></span><span></span><span></span>';
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    area.appendChild(wrap);
+    scrollBottom();
+  }
+
+  function removeThinking() {
+    const el = document.getElementById('thinking-wrap');
+    if (el) el.remove();
+  }
+
+  function scrollBottom() {
+    const area = document.getElementById('chat-area');
+    area.scrollTop = area.scrollHeight;
+  }
+
+  // ── Image handling ────────────────────────────────────────────
+  function readImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const dataUrl = e.target.result;
+        const [header, base64] = dataUrl.split(',');
+        const mediaType = header.match(/:(.*?);/)[1];
+        resolve({ dataUrl, base64, mediaType });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function addImageFiles(files) {
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      const img = await readImageFile(file);
+      pendingImages.push(img);
+    }
+    renderPreviewStrip();
+  }
+
+  function renderPreviewStrip() {
+    const strip = document.getElementById('img-preview-strip');
+    strip.innerHTML = '';
+    pendingImages.forEach((img, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'img-thumb';
+      thumb.innerHTML = `
+        <img src="${img.dataUrl}" alt="preview" />
+        <div class="thumb-del" title="Remove">✕</div>
+      `;
+      thumb.querySelector('.thumb-del').addEventListener('click', () => {
+        pendingImages.splice(i, 1);
+        renderPreviewStrip();
+      });
+      strip.appendChild(thumb);
+    });
+  }
+
+  // ── File type picker ──────────────────────────────────────────
+  document.getElementById('btn-attach').addEventListener('click', () => {
+    document.getElementById('file-type-overlay').classList.add('open');
+  });
+
+  function pickFileType(accept) {
+    const input = document.getElementById('file-input');
+    input.accept = accept;
+    input.click();
+    closeFTPicker();
+  }
+
+  function closeFTPicker(e) {
+    if (e && document.getElementById('file-type-modal').contains(e.target)) return;
+    document.getElementById('file-type-overlay').classList.remove('open');
+  }
+
+  document.getElementById('file-input').addEventListener('change', async e => {
+    await addImageFiles(Array.from(e.target.files));
+    e.target.value = '';
+  });
+
+  document.getElementById('msg-input').addEventListener('paste', async e => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItems = items.filter(it => it.type.startsWith('image/'));
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    const files = imageItems.map(it => it.getAsFile()).filter(Boolean);
+    await addImageFiles(files);
+  });
+
+  const inputBar = document.getElementById('input-bar');
+  inputBar.addEventListener('dragover', e => {
+    e.preventDefault();
+    inputBar.classList.add('drag-over');
+  });
+  inputBar.addEventListener('dragleave', e => {
+    if (!inputBar.contains(e.relatedTarget)) {
+      inputBar.classList.remove('drag-over');
+    }
+  });
+  inputBar.addEventListener('drop', async e => {
+    e.preventDefault();
+    inputBar.classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer.files);
+    await addImageFiles(files);
+  });
+
+  // ── Profile dropdown ──────────────────────────────────────────
+  function getInitials(name, email) {
+    if (name && name.trim()) {
+      const parts = name.trim().split(' ');
+      return parts.length >= 2
+        ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+        : parts[0][0].toUpperCase();
+    }
+    if (email) return email[0].toUpperCase();
+    return 'E';
+  }
+
+  function updateProfileUI(user) {
+    if (!user) return;
+    const initials = getInitials(user.name, user.email);
+    const displayName = user.name || user.email.split('@')[0];
+    const email = user.email || '—';
+
+    // Chip
+    document.getElementById('chip-avatar-initials').textContent = initials;
+    document.getElementById('user-name-display').textContent = displayName;
+
+    // Dropdown header
+    document.getElementById('pd-avatar-initials').textContent = initials;
+    document.getElementById('pd-display-name').textContent = displayName;
+    document.getElementById('pd-display-email').textContent = email;
+
+    // Profile modal hero
+    document.getElementById('pm-avatar-initials').textContent = initials;
+    document.getElementById('pm-display-name').textContent = displayName;
+
+    // Profile modal fields
+    document.getElementById('pm-name-val').textContent = user.name || '—';
+    document.getElementById('pm-email-val').textContent = email;
+  }
+
+  function toggleProfileMenu(e) {
+    e.stopPropagation();
+    const chip = document.getElementById('user-chip');
+    const dropdown = document.getElementById('profile-dropdown');
+    const isOpen = dropdown.classList.contains('open');
+
+    if (isOpen) {
+      closeProfileMenu();
+    } else {
+      chip.classList.add('open');
+      dropdown.classList.add('open');
+    }
+  }
+
+  function closeProfileMenu() {
+    document.getElementById('user-chip').classList.remove('open');
+    document.getElementById('profile-dropdown').classList.remove('open');
+  }
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    const wrapper = document.getElementById('profile-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+      closeProfileMenu();
+    }
+  });
+
+  // ── Profile Info Modal ─────────────────────────────────────────
+  function openProfileModal() {
+    closeProfileMenu();
+    // Update conversation count
+    document.getElementById('pm-convo-count').textContent = sessions.length;
+    document.getElementById('profile-modal-overlay').classList.add('open');
+  }
+
+  function closeProfileModal(e) {
+    if (e && document.getElementById('profile-modal').contains(e.target)) return;
+    document.getElementById('profile-modal-overlay').classList.remove('open');
+  }
+
+  // ── Sending messages ──────────────────────────────────────────
+  async function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    const hasImages = pendingImages.length > 0;
+
+    if (!text && !hasImages) return;
+
+    if (!activeId) newSession();
+    const sess = getSession(activeId);
+    if (!sess) return;
+
+    const imagesToSend = [...pendingImages];
+    pendingImages = [];
+    renderPreviewStrip();
+
+    if (sess.messages.length === 0) {
+      const titleText = text || (hasImages ? '📷 Image' : 'New Chat');
+      sess.title = titleText.slice(0, 36) + (titleText.length > 36 ? '…' : '');
+      document.getElementById('session-title').textContent = sess.title;
+      renderSessionList();
+    }
+
+    const userMsg = {
+      role: 'user',
+      content: text,
+      images: imagesToSend.map(i => i.dataUrl)
+    };
+    sess.messages.push(userMsg);
+    saveState();
+
+    appendBubble('user', text, imagesToSend.map(i => i.dataUrl));
+    input.value = '';
+    input.style.height = '';
+    setDisabled(true);
+    showThinking();
+
+    const SYSTEM_PROMPT = `You are Eron, a brilliant and warm AI assistant. Speak exactly like Claude made by Anthropic — thoughtful, direct, and genuinely helpful. Key traits:
+- Give clear, honest answers. Never start with "Great question!" or "Absolutely!"
+- Think carefully and share reasoning when helpful, but stay concise for simple questions
+- Be confident but intellectually humble — say when you're unsure
+- Use plain, natural language. No corporate speak or buzzwords
+- Be playful and witty when the mood calls for it, but never forced
+- Format cleanly: use bullet points, numbered lists, or code blocks when they genuinely help
+- Care about accuracy — flag things that might be wrong or outdated
+- Never pretend to be human if asked directly`;
+
+    const puterMessages = [
+      { role: 'user', content: SYSTEM_PROMPT },
+      { role: 'assistant', content: "Got it. I'm Eron — ready to help." },
+      ...sess.messages.map(m => {
+        const hasMsgImages = m.images && m.images.length > 0;
+        if (m.role === 'user' && hasMsgImages) {
+          const parts = [];
+          m.images.forEach(dataUrl => {
+            parts.push({ type: 'image_url', image_url: { url: dataUrl } });
+          });
+          if (m.content) parts.push({ type: 'text', text: m.content });
+          return { role: 'user', content: parts };
+        }
+        return {
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content || ''
+        };
+      })
+    ];
+
+    try {
+      const model = imagesToSend.length > 0 ? 'gpt-4o' : 'gpt-4o-mini';
+      const response = await puter.ai.chat(puterMessages, { model });
+
+      const reply = response?.message?.content?.[0]?.text
+                 || response?.message?.content
+                 || response?.toString()
+                 || '(no response)';
+
+      sess.messages.push({ role: 'ai', content: reply, images: [] });
+      saveState();
+      removeThinking();
+      appendBubble('ai', reply);
+    } catch (err) {
+      removeThinking();
+      appendBubble('ai', `⚠️ Error: ${err.message || 'Something went wrong.'}`);
+    }
+
+    setDisabled(false);
+    input.focus();
+  }
+
+  function setDisabled(val) {
+    document.getElementById('btn-send').disabled = val;
+    document.getElementById('msg-input').disabled = val;
+    document.getElementById('btn-attach').disabled = val;
+  }
+
+  const inputEl = document.getElementById('msg-input');
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+  });
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  // ── Theme toggle ──────────────────────────────────────────────
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.dataset.theme === 'dark';
+    html.dataset.theme = isDark ? 'light' : 'dark';
+    document.getElementById('btn-theme').textContent = isDark ? '🌙' : '☀️';
+    localStorage.setItem('eron_theme', html.dataset.theme);
+  }
+
+  // ── Auth ──────────────────────────────────────────────────────
+  let currentUser = null;
+
+  function switchTab(tab) {
+    document.getElementById('form-login').style.display  = tab === 'login'  ? '' : 'none';
+    document.getElementById('form-signup').style.display = tab === 'signup' ? '' : 'none';
+    document.getElementById('tab-login').classList.toggle('active',  tab === 'login');
+    document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+    document.getElementById('auth-error').textContent = '';
+  }
+
+  function setAuthError(msg) {
+    document.getElementById('auth-error').textContent = msg;
+  }
+
+  function doLogin() {
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) return setAuthError('Please fill in all fields.');
+
+    const users = JSON.parse(localStorage.getItem('eron_users') || '{}');
+    const user  = users[email];
+    if (!user) return setAuthError('No account found with that email.');
+    if (user.password !== btoa(password)) return setAuthError('Incorrect password.');
+
+    loginSuccess(user);
+  }
+
+  function doSignup() {
+    const name     = document.getElementById('signup-name').value.trim();
+    const email    = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const confirm  = document.getElementById('signup-confirm').value;
+
+    if (!name || !email || !password) return setAuthError('Please fill in all fields.');
+    if (password.length < 6) return setAuthError('Password must be at least 6 characters.');
+    if (password !== confirm) return setAuthError('Passwords do not match.');
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return setAuthError('Enter a valid email address.');
+
+    const users = JSON.parse(localStorage.getItem('eron_users') || '{}');
+    if (users[email]) return setAuthError('An account with that email already exists.');
+
+    const user = { name, email, password: btoa(password) };
+    users[email] = user;
+    localStorage.setItem('eron_users', JSON.stringify(users));
+    loginSuccess(user);
+  }
+
+  function loginSuccess(user) {
+    currentUser = user;
+    localStorage.setItem('eron_current_user', JSON.stringify(user));
+    document.getElementById('auth-screen').classList.add('hidden');
+
+    updateProfileUI(user);
+
+    const key = 'eron_sessions_' + user.email;
+    sessions = JSON.parse(localStorage.getItem(key) || '[]');
+    if (sessions.length) {
+      renderSessionList();
+      setActive(sessions[0].id);
+    } else {
+      newSession();
+    }
+  }
+
+  function doLogout() {
+    if (!confirm('Sign out of Eron?')) return;
+    currentUser = null;
+    localStorage.removeItem('eron_current_user');
+    sessions = [];
+    activeId = null;
+    closeProfileMenu();
+    document.getElementById('profile-modal-overlay').classList.remove('open');
+    document.getElementById('auth-screen').classList.remove('hidden');
+    document.getElementById('sessions-list').innerHTML = '';
+    document.getElementById('chat-area').innerHTML = '';
+  }
+
+  // ── Init ──────────────────────────────────────────────────────
+  function init() {
+    const savedTheme = localStorage.getItem('eron_theme') || 'dark';
+    document.documentElement.dataset.theme = savedTheme;
+    document.getElementById('btn-theme').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+
+    const saved = localStorage.getItem('eron_current_user');
+    if (saved) {
+      try { loginSuccess(JSON.parse(saved)); return; } catch(e) {}
+    }
+    document.getElementById('auth-screen').classList.remove('hidden');
+  }
+
+  ['login-email','login-password'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  });
+  ['signup-name','signup-email','signup-password','signup-confirm'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => { if(e.key==='Enter') doSignup(); });
+  });
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('Eron SW registered:', reg.scope))
+        .catch(err => console.warn('SW registration failed:', err));
+    });
+  }
+
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallBanner();
+  });
+
+  function showInstallBanner() {
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.style.display = 'flex';
+  }
+
+  function installApp() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(choice => {
+      deferredPrompt = null;
+      document.getElementById('install-banner').style.display = 'none';
+    });
+  }
+
+  function dismissInstall() {
+    document.getElementById('install-banner').style.display = 'none';
+    sessionStorage.setItem('install-dismissed', '1');
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "name": "Eron — AI Chat",
+  "short_name": "Eron",
+  "description": "Your intelligent AI assistant, powered by Puter",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#141616",
+  "theme_color": "#3ddc84",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "New Chat",
+      "short_name": "New Chat",
+      "description": "Start a new conversation",
+      "url": "/index.html?new=1"
+    }
+  ]
+}
